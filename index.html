@@ -115,23 +115,32 @@
     );
   }
 
+  // ─── 차량 크기별 색상 ────────────────────────────────────────────────────
+  const SIZE_STYLE = {
+    소형: { bg:'bg-emerald-50', border:'border-emerald-400', hover:'hover:bg-emerald-100', text:'text-emerald-700', label:'소형' },
+    중형: { bg:'bg-yellow-50',  border:'border-yellow-400',  hover:'hover:bg-yellow-100',  text:'text-yellow-700',  label:'중형' },
+    대형: { bg:'bg-red-50',     border:'border-red-400',     hover:'hover:bg-red-100',     text:'text-red-700',     label:'대형' },
+  };
+  const EMPTY_STYLE = { bg:'bg-slate-50', border:'border-slate-200', hover:'hover:bg-slate-100' };
+
   // ─── 주차 칸 ──────────────────────────────────────────────────────────────
   function Spot({ id, data, onClick, vertical=false }) {
-    const on=data!==null&&data!==undefined;
+    const on = data!==null&&data!==undefined;
+    const s  = on ? (SIZE_STYLE[data.size]||SIZE_STYLE['중형']) : EMPTY_STYLE;
     return (
       <button onClick={()=>onClick(id)}
         className={`flex flex-col items-center justify-center rounded-lg border-2 transition-all active:scale-95 select-none shrink-0
-          ${on?'bg-red-50 border-red-300 hover:bg-red-100':'bg-emerald-50 border-emerald-300 hover:bg-emerald-100'}
+          ${s.bg} ${s.border} ${s.hover}
           ${vertical?'w-14 h-14':'w-12 h-12'}`}
       >
         <span className="text-[9px] text-slate-400 leading-none">{id}</span>
         {on ? (
           <>
-            <span className="text-[10px] font-bold text-red-700 leading-tight mt-0.5 truncate w-full text-center px-0.5">{data.plate}</span>
-            <span className="text-[8px] text-red-400 leading-none mt-0.5">{elapsed(data.entryTime)}</span>
+            <span className={`text-[9px] font-bold ${s.text} leading-none mt-0.5`}>{data.size}</span>
+            <span className={`text-[10px] font-bold ${s.text} leading-tight truncate w-full text-center px-0.5`}>{data.plate}</span>
           </>
         ) : (
-          <span className="text-emerald-400 font-bold text-base leading-none mt-0.5">P</span>
+          <span className="text-slate-300 font-bold text-base leading-none mt-0.5">P</span>
         )}
       </button>
     );
@@ -151,20 +160,37 @@
 
   function EntryModal({ spotId, onConfirm, onClose }) {
     const [plate,setPlate]=useState('');
+    const [size,setSize]=useState('중형');
     const ref=useRef();
     useEffect(()=>ref.current?.focus(),[]);
+    const sz = SIZE_STYLE[size];
     return (
       <Modal onClose={onClose}>
         <p className="text-xs text-slate-400 mb-0.5">구역 <b className="text-blue-600">{spotId}</b></p>
         <h2 className="text-lg font-bold text-slate-800 mb-4">입차 등록</h2>
-        <form onSubmit={e=>{e.preventDefault();if(plate.trim())onConfirm(spotId,plate.trim());}}>
+        <form onSubmit={e=>{e.preventDefault();if(plate.trim())onConfirm(spotId,plate.trim(),size);}}>
+          {/* 차량 크기 선택 */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {Object.entries(SIZE_STYLE).map(([key,st])=>(
+              <button key={key} type="button" onClick={()=>setSize(key)}
+                className={`py-2.5 rounded-xl text-sm font-bold border-2 transition-all
+                  ${size===key ? `${st.bg} ${st.border} ${st.text}` : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100'}`}>
+                {key}
+              </button>
+            ))}
+          </div>
           <input ref={ref} value={plate} onChange={e=>setPlate(e.target.value)}
             placeholder="차량번호 (예: 12가 3456)"
             onKeyDown={e=>e.key==='Escape'&&onClose()}
-            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-center tracking-widest mb-4 focus:outline-none focus:border-blue-400" />
+            className={`w-full border-2 rounded-xl px-4 py-3 text-sm font-bold text-center tracking-widest mb-4 focus:outline-none transition-colors
+              ${plate ? `${sz.border}` : 'border-slate-200 focus:border-blue-400'}`} />
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-slate-200 text-sm text-slate-500">취소</button>
-            <button type="submit" disabled={!plate.trim()} className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-bold">입차 등록</button>
+            <button type="submit" disabled={!plate.trim()}
+              className={`flex-1 py-3 rounded-xl text-white text-sm font-bold transition-colors
+                ${!plate.trim() ? 'bg-slate-200 text-slate-400' : size==='소형' ? 'bg-emerald-500 hover:bg-emerald-600' : size==='대형' ? 'bg-red-500 hover:bg-red-600' : 'bg-yellow-500 hover:bg-yellow-600'}`}>
+              입차 등록
+            </button>
           </div>
         </form>
       </Modal>
@@ -178,6 +204,7 @@
         <h2 className="text-lg font-bold text-slate-800 mb-4">차량 정보</h2>
         <div className="bg-slate-50 rounded-xl p-4 space-y-2.5 mb-4 text-sm">
           {[['차량번호',<b className="tracking-wider">{data.plate}</b>],
+            ['차량크기', <span className={`font-bold ${(SIZE_STYLE[data.size]||SIZE_STYLE['중형']).text}`}>{data.size||'중형'}</span>],
             ['입차시간',data.entryTime],
             ['주차시간',<b className="text-blue-600">{elapsed(data.entryTime)}</b>],
             ['담당자',data.attendant]
@@ -287,9 +314,9 @@
       }
     }
 
-    function handleEntry(id, plate) {
-      const data = { plate, entryTime:nowStr(), attendant:user.name };
-      write({ ...spots,[id]:data }, [...records,{type:'입차',spotId:id,plate,time:nowStr(),attendant:user.name}]);
+    function handleEntry(id, plate, size='중형') {
+      const data = { plate, size, entryTime:nowStr(), attendant:user.name };
+      write({ ...spots,[id]:data }, [...records,{type:'입차',spotId:id,plate,size,time:nowStr(),attendant:user.name}]);
       setModal(null);
     }
     function handleExit(id) {
