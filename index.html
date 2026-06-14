@@ -25,10 +25,9 @@
   // ─── 구역 정의 ───────────────────────────────────────────────────────────
   // 가로: A(상단1열), B(상단2열), C(하단1열), D(하단2열) — 각 10대
   // 세로: 지(지정주차), 공(공원주차) — 각 10대
-  const N = 10;
-  const mkRow  = key => Array.from({length:N}, (_,i) => `${key}${i+1}`);
-  const ROWS   = { A: mkRow('A'), B: mkRow('B'), C: mkRow('C'), D: mkRow('D') };
-  const VERTS  = { 지: mkRow('지'), 공: mkRow('공') };
+  const mkRow  = (key, n) => Array.from({length:n}, (_,i) => `${key}${i+1}`);
+  const ROWS   = { A: mkRow('A',5), B: mkRow('B',5), C: mkRow('C',5), D: mkRow('D',5) };
+  const VERTS  = { 지: mkRow('지',10), 공: mkRow('공',10) };
   const ALL_SPOTS = [...Object.values(ROWS), ...Object.values(VERTS)].flat();
 
   function nowStr() {
