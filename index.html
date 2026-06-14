@@ -8,6 +8,9 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
     body { font-family: 'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif; }
     @keyframes fadeIn  { from{opacity:0}    to{opacity:1} }
@@ -23,21 +26,59 @@
   const { useState, useEffect, useRef } = React;
 
   // ─── 구역 정의 ───────────────────────────────────────────────────────────
-  // 가로: A(상단1열), B(상단2열), C(하단1열), D(하단2열) — 각 10대
-  // 세로: 지(지정주차), 공(공원주차) — 각 10대
-  const mkRow  = (key, n) => Array.from({length:n}, (_,i) => `${key}${i+1}`);
-  const ROWS   = { A: mkRow('A',5), B: mkRow('B',5), C: mkRow('C',5), D: mkRow('D',5) };
-  const VERTS  = { 지: mkRow('지',10), 공: mkRow('공',10) };
-  const ALL_SPOTS = [...Object.values(ROWS), ...Object.values(VERTS)].flat();
+  const mkRow = (key,n) => Array.from({length:n},(_,i)=>`${key}${i+1}`);
+  const ROWS  = { A:mkRow('A',5), B:mkRow('B',5), C:mkRow('C',5), D:mkRow('D',5) };
+  const VERTS = { 지:mkRow('지',10), 공:mkRow('공',10) };
+  const ALL_SPOTS = [...Object.values(ROWS),...Object.values(VERTS)].flat();
+  const INIT_SPOTS = Object.fromEntries(ALL_SPOTS.map(id=>[id,null]));
 
   function nowStr() {
-    const d=new Date(), p=n=>String(n).padStart(2,'0');
+    const d=new Date(),p=n=>String(n).padStart(2,'0');
     return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   }
   function elapsed(t) {
     const m=Math.floor((Date.now()-new Date(t.replace(' ','T')))/60000);
     if(m<60) return `${m}분`;
     return `${Math.floor(m/60)}시간${m%60?` ${m%60}분`:''}`;
+  }
+
+  // ─── Firebase 설정 모달 ──────────────────────────────────────────────────
+  function FirebaseSetup({ current, onSave, onClose }) {
+    const [url, setUrl] = useState(current||'');
+    return (
+      <div className="fade-in fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="slide-up bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+          <h2 className="text-base font-bold text-slate-800 mb-1">🔗 실시간 동기화 설정</h2>
+          <p className="text-xs text-slate-400 mb-4">Firebase Database URL을 입력하면 웹·모바일이 실시간으로 연동됩니다.</p>
+
+          <div className="bg-blue-50 rounded-xl p-3 mb-4 text-xs text-blue-700 space-y-1">
+            <p className="font-bold">Firebase 설정 방법 (무료)</p>
+            <p>1. <b>console.firebase.google.com</b> 접속</p>
+            <p>2. 새 프로젝트 만들기</p>
+            <p>3. Realtime Database → 데이터베이스 만들기 → 테스트 모드</p>
+            <p>4. 상단 URL 복사 <span className="bg-blue-100 px-1 rounded">https://xxx-rtdb.firebaseio.com</span></p>
+          </div>
+
+          <label className="block text-xs font-semibold text-slate-500 mb-1.5">Database URL</label>
+          <input value={url} onChange={e=>setUrl(e.target.value)}
+            placeholder="https://your-project-default-rtdb.firebaseio.com"
+            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs mb-4 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+
+          <div className="flex gap-2">
+            {current && (
+              <button onClick={()=>onSave('')}
+                className="flex-1 py-2.5 rounded-xl border border-red-200 text-xs text-red-500 hover:bg-red-50">연동 해제</button>
+            )}
+            <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-500">취소</button>
+            <button onClick={()=>url.trim()&&onSave(url.trim())}
+              disabled={!url.trim()}
+              className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold">
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // ─── 로그인 ───────────────────────────────────────────────────────────────
@@ -76,7 +117,7 @@
 
   // ─── 주차 칸 ──────────────────────────────────────────────────────────────
   function Spot({ id, data, onClick, vertical=false }) {
-    const on = data!==null;
+    const on=data!==null&&data!==undefined;
     return (
       <button onClick={()=>onClick(id)}
         className={`flex flex-col items-center justify-center rounded-lg border-2 transition-all active:scale-95 select-none shrink-0
@@ -193,57 +234,98 @@
 
   // ─── 메인 앱 ─────────────────────────────────────────────────────────────
   function App() {
-    const [user,setUser]=useState(()=>{ try{return JSON.parse(localStorage.getItem('pk_user'));}catch{return null;} });
-    const [spots,setSpots]=useState(()=>{ try{return JSON.parse(localStorage.getItem('pk_spots'))||Object.fromEntries(ALL_SPOTS.map(id=>[id,null]));}catch{return Object.fromEntries(ALL_SPOTS.map(id=>[id,null]));} });
-    const [records,setRecords]=useState(()=>{ try{return JSON.parse(localStorage.getItem('pk_records'))||[];}catch{return [];} });
-    const [modal,setModal]=useState(null);
-    const [showRec,setShowRec]=useState(false);
-    const [,setTick]=useState(0);
+    const [user,setUser]       = useState(()=>{ try{return JSON.parse(localStorage.getItem('pk_user'));}catch{return null;} });
+    const [spots,setSpots]     = useState(()=>{ try{return JSON.parse(localStorage.getItem('pk_spots'))||INIT_SPOTS;}catch{return INIT_SPOTS;} });
+    const [records,setRecords] = useState(()=>{ try{return JSON.parse(localStorage.getItem('pk_records'))||[];}catch{return [];} });
+    const [modal,setModal]     = useState(null);
+    const [showRec,setShowRec] = useState(false);
+    const [showFbSetup,setShowFbSetup] = useState(false);
+    const [fbUrl,setFbUrl]     = useState(()=>localStorage.getItem('pk_fb_url')||'');
+    const [fbOk,setFbOk]       = useState(false);
+    const fbRef = useRef(null);
+    const [,setTick] = useState(0);
 
-    useEffect(()=>{ if(user) localStorage.setItem('pk_user',JSON.stringify(user)); },[user]);
-    useEffect(()=>{ localStorage.setItem('pk_spots',JSON.stringify(spots)); },[spots]);
-    useEffect(()=>{ localStorage.setItem('pk_records',JSON.stringify(records)); },[records]);
-    useEffect(()=>{ const t=setInterval(()=>setTick(x=>x+1),60000); return ()=>clearInterval(t); },[]);
+    // ── Firebase 초기화 ──────────────────────────────────────────────────
+    useEffect(()=>{
+      if(!fbUrl){ setFbOk(false); fbRef.current=null; return; }
+      try {
+        let app;
+        try { app = firebase.app('pk'); }
+        catch(e) { app = firebase.initializeApp({ databaseURL: fbUrl }, 'pk'); }
 
-    const total=ALL_SPOTS.length;
-    const occupied=Object.values(spots).filter(s=>s!==null).length;
-    const available=total-occupied;
-    const pct=Math.round((occupied/total)*100);
+        const ref = firebase.database(app).ref('parkingData');
+        fbRef.current = ref;
 
-    function handleClick(id){ setModal({type:spots[id]?'exit':'entry',id}); }
-    function handleEntry(id,plate){
-      const data={plate,entryTime:nowStr(),attendant:user.name};
-      setSpots(p=>({...p,[id]:data}));
-      setRecords(p=>[...p,{type:'입차',spotId:id,plate,time:nowStr(),attendant:user.name}]);
+        ref.on('value', snap=>{
+          const d = snap.val();
+          if(!d){
+            // 첫 연결 시 초기 데이터 설정
+            ref.set({ spots: INIT_SPOTS, records: [] });
+            return;
+          }
+          setSpots(d.spots || INIT_SPOTS);
+          setRecords(Array.isArray(d.records) ? d.records : Object.values(d.records||{}));
+          setFbOk(true);
+        }, ()=>setFbOk(false));
+
+        return ()=>{ ref.off(); };
+      } catch(e){ console.error(e); setFbOk(false); }
+    }, [fbUrl]);
+
+    // ── localStorage 저장 (Firebase 미사용시) ────────────────────────────
+    useEffect(()=>{ if(!fbRef.current) localStorage.setItem('pk_spots',JSON.stringify(spots)); },[spots]);
+    useEffect(()=>{ if(!fbRef.current) localStorage.setItem('pk_records',JSON.stringify(records)); },[records]);
+    useEffect(()=>{ const t=setInterval(()=>setTick(x=>x+1),60000); return()=>clearInterval(t); },[]);
+
+    // ── Firebase에 쓰기 (연결된 경우) ────────────────────────────────────
+    function write(newSpots, newRecords) {
+      if(fbRef.current){
+        fbRef.current.set({ spots: newSpots, records: newRecords });
+      } else {
+        setSpots(newSpots);
+        setRecords(newRecords);
+      }
+    }
+
+    function handleEntry(id, plate) {
+      const data = { plate, entryTime:nowStr(), attendant:user.name };
+      write({ ...spots,[id]:data }, [...records,{type:'입차',spotId:id,plate,time:nowStr(),attendant:user.name}]);
       setModal(null);
     }
-    function handleExit(id){
+    function handleExit(id) {
       const d=spots[id];
-      setRecords(p=>[...p,{type:'출차',spotId:id,plate:d.plate,time:nowStr(),attendant:user.name}]);
-      setSpots(p=>({...p,[id]:null}));
+      write({ ...spots,[id]:null }, [...records,{type:'출차',spotId:id,plate:d.plate,time:nowStr(),attendant:user.name}]);
       setModal(null);
     }
+    function saveFbUrl(url) {
+      localStorage.setItem('pk_fb_url', url);
+      setFbUrl(url);
+      setShowFbSetup(false);
+    }
+
+    const total    = ALL_SPOTS.length;
+    const occupied = Object.values(spots).filter(s=>s!==null&&s!==undefined).length;
+    const available= total-occupied;
+    const pct      = Math.round((occupied/total)*100);
 
     if(!user) return <LoginScreen onLogin={u=>{setUser(u);localStorage.setItem('pk_user',JSON.stringify(u));}} />;
 
-    // 가로 행 렌더
     function HorizRow({ keys, label, color }) {
       return (
         <div className="flex items-center gap-1.5">
           <div className={`text-[10px] font-bold w-5 shrink-0 text-center ${color}`}>{label}</div>
           <div className="flex gap-1">
-            {keys.map(id=><Spot key={id} id={id} data={spots[id]} onClick={handleClick} />)}
+            {keys.map(id=><Spot key={id} id={id} data={spots[id]} onClick={id=>setModal({type:spots[id]?'exit':'entry',id})} />)}
           </div>
         </div>
       );
     }
 
-    // 세로 열 렌더
     function VertCol({ keys, label, color }) {
       return (
         <div className="flex flex-col items-center gap-1">
           <div className={`text-[10px] font-bold mb-0.5 ${color}`}>{label}</div>
-          {keys.map(id=><Spot key={id} id={id} data={spots[id]} onClick={handleClick} vertical />)}
+          {keys.map(id=><Spot key={id} id={id} data={spots[id]} onClick={id=>setModal({type:spots[id]?'exit':'entry',id})} vertical />)}
         </div>
       );
     }
@@ -260,7 +342,12 @@
                 <p className="text-blue-200 text-[10px]">{user.name} · {user.role}</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 items-center">
+              {/* 동기화 상태 */}
+              <button onClick={()=>setShowFbSetup(true)}
+                className={`text-[10px] px-2 py-1 rounded-lg font-semibold flex items-center gap-1 ${fbOk?'bg-emerald-500/30 text-emerald-200':'bg-white/10 text-white/60 hover:bg-white/20'}`}>
+                {fbOk ? '🟢 동기화중' : '⚪ 동기화설정'}
+              </button>
               {user.role==='관리자'&&<button onClick={()=>setShowRec(true)} className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg font-semibold">기록</button>}
               <button onClick={()=>{setUser(null);localStorage.removeItem('pk_user');}} className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">로그아웃</button>
             </div>
@@ -285,38 +372,32 @@
         {/* 주차 맵 */}
         <main className="max-w-3xl mx-auto p-3">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
-
-            {/* 범례 */}
             <div className="flex justify-center gap-5 mb-4 text-xs text-slate-400">
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block"></span>빈자리</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block"></span>주차중</span>
             </div>
 
             <div className="map-scroll">
-              <div style={{minWidth:'540px'}} className="space-y-4">
+              <div style={{minWidth:'320px'}} className="space-y-4">
 
-                {/* 상단 가로구역 */}
                 <div className="border border-slate-100 rounded-xl p-3 space-y-1.5">
                   <p className="text-[10px] font-bold text-slate-400 mb-2">▲ 1주차장</p>
                   <HorizRow keys={ROWS.A} label="A" color="text-blue-500" />
                   <HorizRow keys={ROWS.B} label="B" color="text-blue-400" />
                 </div>
 
-                {/* 주행로 */}
                 <div className="flex items-center gap-2 px-1">
                   <div className="flex-1 border-t-2 border-dashed border-slate-200"></div>
                   <span className="text-[10px] text-slate-300 font-semibold shrink-0">── 주행로 ──</span>
                   <div className="flex-1 border-t-2 border-dashed border-slate-200"></div>
                 </div>
 
-                {/* 하단 가로구역 */}
                 <div className="border border-slate-100 rounded-xl p-3 space-y-1.5">
                   <p className="text-[10px] font-bold text-slate-400 mb-2">▼ 1주차장</p>
                   <HorizRow keys={ROWS.C} label="C" color="text-violet-500" />
                   <HorizRow keys={ROWS.D} label="D" color="text-violet-400" />
                 </div>
 
-                {/* 세로 구역 */}
                 <div className="border border-slate-100 rounded-xl p-3">
                   <p className="text-[10px] font-bold text-slate-400 mb-3">↕ 세로 주차구역</p>
                   <div className="flex gap-6">
@@ -328,14 +409,15 @@
 
               </div>
             </div>
-
             <p className="text-center text-[11px] text-slate-300 mt-4">빈 칸 클릭 → 입차 · 주차중 클릭 → 출차</p>
           </div>
         </main>
 
         {modal?.type==='entry'&&<EntryModal spotId={modal.id} onConfirm={handleEntry} onClose={()=>setModal(null)} />}
         {modal?.type==='exit'&&spots[modal.id]&&<ExitModal spotId={modal.id} data={spots[modal.id]} onExit={handleExit} onClose={()=>setModal(null)} />}
-        {showRec&&<RecordsPanel records={records} onClose={()=>setShowRec(false)} onClear={()=>{if(confirm('기록을 모두 삭제할까요?'))setRecords([]);}} />}
+        {showRec&&<RecordsPanel records={records} onClose={()=>setShowRec(false)}
+          onClear={()=>{ if(confirm('기록을 모두 삭제할까요?')) write(spots,[]); }} />}
+        {showFbSetup&&<FirebaseSetup current={fbUrl} onSave={saveFbUrl} onClose={()=>setShowFbSetup(false)} />}
       </div>
     );
   }
