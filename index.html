@@ -358,7 +358,7 @@
     }
 
     function VertColWithPosition({ keys, label, color }) {
-      const [dirs, setDirs] = useState({}); // { [id]: 'up' | 'down' | null }
+      const [dirs, setDirs] = useState({});
 
       function toggleDir(id, dir) {
         setDirs(prev => ({ ...prev, [id]: prev[id] === dir ? null : dir }));
@@ -367,49 +367,37 @@
       return (
         <div className="flex flex-col gap-1">
           <div className={`text-[10px] font-bold mb-0.5 text-center ${color}`}>{label}</div>
-          <div className="flex gap-1 items-start">
-
-            {/* 방향 커서 패널 */}
-            <div className="flex flex-col gap-1 shrink-0">
-              {keys.map((id, i) => {
-                const d = dirs[id] || null;
-                return (
-                  <div key={id} className="flex flex-col items-center justify-center gap-0.5" style={{height:'60px', width:'22px'}}>
-                    {/* ▲ 위방향 버튼 */}
+          <div className="flex flex-col gap-1">
+            {keys.map((id) => {
+              const d = dirs[id] || null;
+              return (
+                <div key={id} className="flex items-center gap-1">
+                  {/* 방향 커서 - Spot과 같은 행에 나란히 */}
+                  <div className="flex flex-col items-center justify-center gap-0.5 w-5 h-14 shrink-0">
                     <button
                       onClick={() => toggleDir(id, 'up')}
-                      className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold transition-all border
+                      className={`w-5 h-6 rounded flex items-center justify-center text-xs font-bold transition-all border
                         ${d === 'up'
                           ? 'bg-blue-500 border-blue-600 text-white shadow-sm'
                           : 'bg-slate-50 border-slate-200 text-slate-300 hover:border-blue-300 hover:text-blue-400'}`}>
                       ▲
                     </button>
-                    {/* ▼ 아래방향 버튼 */}
                     <button
                       onClick={() => toggleDir(id, 'down')}
-                      className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold transition-all border
+                      className={`w-5 h-6 rounded flex items-center justify-center text-xs font-bold transition-all border
                         ${d === 'down'
                           ? 'bg-blue-500 border-blue-600 text-white shadow-sm'
                           : 'bg-slate-50 border-slate-200 text-slate-300 hover:border-blue-300 hover:text-blue-400'}`}>
                       ▼
                     </button>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* 주차 칸 */}
-            <div className="flex flex-col gap-1">
-              {keys.map((id, i) => {
-                const d = dirs[id] || null;
-                return (
-                  <div key={id} className={`rounded-xl transition-all ${d ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}>
+                  {/* 주차 칸 */}
+                  <div className={`rounded-xl transition-all ${d ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}>
                     <Spot id={id} data={spots[id]} onClick={id=>setModal({type:spots[id]?'exit':'entry',id})} vertical />
                   </div>
-                );
-              })}
-            </div>
-
+                </div>
+              );
+            })}
           </div>
         </div>
       );
