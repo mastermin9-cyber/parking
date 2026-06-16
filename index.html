@@ -357,30 +357,28 @@
       );
     }
 
-    function handleSwapSpots(idA, idB) {
-      const newSpots = { ...spots, [idA]: spots[idB]||null, [idB]: spots[idA]||null };
-      write(newSpots, records);
-    }
-
-    function VertColWithArrows({ keys, label, color }) {
+    function VertColWithPosition({ keys, label, color }) {
       return (
         <div className="flex flex-col gap-1">
           <div className={`text-[10px] font-bold mb-0.5 text-center ${color}`}>{label}</div>
-          {keys.map((id, i) => (
-            <div key={id} className="flex items-center gap-1">
-              <Spot id={id} data={spots[id]} onClick={id=>setModal({type:spots[id]?'exit':'entry',id})} vertical />
-              <div className="flex flex-col gap-0.5">
-                <button
-                  onPointerDown={e=>{ e.stopPropagation(); if(i>0) handleSwapSpots(id, keys[i-1]); }}
-                  disabled={i===0}
-                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-20 text-slate-400 flex items-center justify-center text-[10px] leading-none">▲</button>
-                <button
-                  onPointerDown={e=>{ e.stopPropagation(); if(i<keys.length-1) handleSwapSpots(id, keys[i+1]); }}
-                  disabled={i===keys.length-1}
-                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-20 text-slate-400 flex items-center justify-center text-[10px] leading-none">▼</button>
-              </div>
+          <div className="flex gap-1.5 items-start">
+            {/* 순번 표시 */}
+            <div className="flex flex-col gap-1 pt-0.5">
+              {keys.map((_, i) => (
+                <div key={i} className="w-4 h-14 flex flex-col items-center justify-center gap-0.5">
+                  {i === 0 && <span className="text-[8px] text-slate-300">▲</span>}
+                  <span className="text-[9px] font-bold text-slate-300">{i+1}</span>
+                  {i === keys.length-1 && <span className="text-[8px] text-slate-300">▼</span>}
+                </div>
+              ))}
             </div>
-          ))}
+            {/* 주차 칸 */}
+            <div className="flex flex-col gap-1">
+              {keys.map(id=>(
+                <Spot key={id} id={id} data={spots[id]} onClick={id=>setModal({type:spots[id]?'exit':'entry',id})} vertical />
+              ))}
+            </div>
+          </div>
         </div>
       );
     }
@@ -457,7 +455,7 @@
                   <p className="text-[10px] font-bold text-slate-400 mb-3">↕ 세로 주차구역</p>
                   <div className="flex gap-4 flex-wrap">
                     {/* 지정주차 - ▲▼ 이동 가능 */}
-                    <VertColWithArrows keys={VERTS['지']} label="지정주차" color="text-amber-500" />
+                    <VertColWithPosition keys={VERTS['지']} label="지정주차" color="text-amber-500" />
                     <div className="border-l border-dashed border-slate-200"></div>
                     {/* 공원주차 - 2열 */}
                     <div className="flex flex-col gap-1">
