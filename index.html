@@ -361,16 +361,26 @@
       return (
         <div className="flex flex-col gap-1">
           <div className={`text-[10px] font-bold mb-0.5 text-center ${color}`}>{label}</div>
-          <div className="flex gap-1.5 items-start">
-            {/* 순번 표시 */}
-            <div className="flex flex-col gap-1 pt-0.5">
-              {keys.map((_, i) => (
-                <div key={i} className="w-4 h-14 flex flex-col items-center justify-center gap-0.5">
-                  {i === 0 && <span className="text-[8px] text-slate-300">▲</span>}
-                  <span className="text-[9px] font-bold text-slate-300">{i+1}</span>
-                  {i === keys.length-1 && <span className="text-[8px] text-slate-300">▼</span>}
-                </div>
-              ))}
+          <div className="flex gap-2 items-stretch">
+            {/* 위치 ruler */}
+            <div className="flex flex-col items-center relative" style={{width:'20px'}}>
+              <span className="text-[9px] text-slate-400 font-bold mb-0.5">위</span>
+              <div className="flex-1 flex flex-col items-center relative w-full">
+                {/* 세로 중심선 */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-px bg-slate-200"></div>
+                {keys.map((id, i) => {
+                  const on = spots[id]!==null && spots[id]!==undefined;
+                  return (
+                    <div key={id} className="flex items-center justify-center relative z-10" style={{height:'60px'}}>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[9px] font-bold transition-all
+                        ${on ? 'bg-amber-400 border-amber-500 text-white' : 'bg-white border-slate-300 text-slate-400'}`}>
+                        {i+1}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="text-[9px] text-slate-400 font-bold mt-0.5">아</span>
             </div>
             {/* 주차 칸 */}
             <div className="flex flex-col gap-1">
