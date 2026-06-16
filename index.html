@@ -358,58 +358,56 @@
     }
 
     function VertColWithPosition({ keys, label, color }) {
-      const [cursor, setCursor] = useState(0); // 0-based index
+      const [dirs, setDirs] = useState({}); // { [id]: 'up' | 'down' | null }
+
+      function toggleDir(id, dir) {
+        setDirs(prev => ({ ...prev, [id]: prev[id] === dir ? null : dir }));
+      }
 
       return (
         <div className="flex flex-col gap-1">
           <div className={`text-[10px] font-bold mb-0.5 text-center ${color}`}>{label}</div>
-          <div className="flex gap-2 items-start">
+          <div className="flex gap-1 items-start">
 
-            {/* 커서 컨트롤 */}
-            <div className="flex flex-col items-center gap-1 shrink-0">
-              {/* ▲ 버튼 */}
-              <button
-                onClick={() => setCursor(c => Math.max(0, c - 1))}
-                disabled={cursor === 0}
-                className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-amber-100 active:bg-amber-200 disabled:opacity-20 text-slate-500 flex items-center justify-center text-xs font-bold transition-all">▲</button>
-
-              {/* 커서 위치 표시 라인 */}
-              <div className="relative flex flex-col items-center" style={{width:'24px'}}>
-                <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-px bg-slate-200 z-0"></div>
-                {keys.map((id, i) => (
-                  <div key={id} className="relative z-10 flex items-center justify-center" style={{height:'60px'}}>
-                    {cursor === i ? (
-                      <div className="flex items-center gap-0.5">
-                        <div className="w-6 h-6 rounded-full bg-amber-400 border-2 border-amber-500 flex items-center justify-center text-[9px] font-bold text-white shadow-md">
-                          {i+1}
-                        </div>
-                        <span className="text-amber-500 text-xs font-bold absolute -right-3">▶</span>
-                      </div>
-                    ) : (
-                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center text-[8px] font-bold transition-all
-                        ${spots[id] ? 'bg-amber-100 border-amber-300 text-amber-600' : 'bg-white border-slate-200 text-slate-300'}`}>
-                        {i+1}
-                      </div>
-                    )}
+            {/* 방향 커서 패널 */}
+            <div className="flex flex-col gap-1 shrink-0">
+              {keys.map((id, i) => {
+                const d = dirs[id] || null;
+                return (
+                  <div key={id} className="flex flex-col items-center justify-center gap-0.5" style={{height:'60px', width:'22px'}}>
+                    {/* ▲ 위방향 버튼 */}
+                    <button
+                      onClick={() => toggleDir(id, 'up')}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold transition-all border
+                        ${d === 'up'
+                          ? 'bg-blue-500 border-blue-600 text-white shadow-sm'
+                          : 'bg-slate-50 border-slate-200 text-slate-300 hover:border-blue-300 hover:text-blue-400'}`}>
+                      ▲
+                    </button>
+                    {/* ▼ 아래방향 버튼 */}
+                    <button
+                      onClick={() => toggleDir(id, 'down')}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold transition-all border
+                        ${d === 'down'
+                          ? 'bg-blue-500 border-blue-600 text-white shadow-sm'
+                          : 'bg-slate-50 border-slate-200 text-slate-300 hover:border-blue-300 hover:text-blue-400'}`}>
+                      ▼
+                    </button>
                   </div>
-                ))}
-              </div>
-
-              {/* ▼ 버튼 */}
-              <button
-                onClick={() => setCursor(c => Math.min(keys.length - 1, c + 1))}
-                disabled={cursor === keys.length - 1}
-                className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-amber-100 active:bg-amber-200 disabled:opacity-20 text-slate-500 flex items-center justify-center text-xs font-bold transition-all">▼</button>
+                );
+              })}
             </div>
 
             {/* 주차 칸 */}
             <div className="flex flex-col gap-1">
-              {keys.map((id, i) => (
-                <div key={id}
-                  className={`rounded-xl transition-all ${cursor === i ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
-                  <Spot id={id} data={spots[id]} onClick={id=>setModal({type:spots[id]?'exit':'entry',id})} vertical />
-                </div>
-              ))}
+              {keys.map((id, i) => {
+                const d = dirs[id] || null;
+                return (
+                  <div key={id} className={`rounded-xl transition-all ${d ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}>
+                    <Spot id={id} data={spots[id]} onClick={id=>setModal({type:spots[id]?'exit':'entry',id})} vertical />
+                  </div>
+                );
+              })}
             </div>
 
           </div>
